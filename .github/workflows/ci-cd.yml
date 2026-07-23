@@ -1,0 +1,184 @@
+name: homecomf CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # =====================
+  # Security & Lint Checks
+  # =====================
+  security-lint:
+    name: Security & Lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [homecomf_Web, Nivaas_Backend]
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.project }}
+        run: npm ci
+
+      - name: ESLint
+        working-directory: ${{ matrix.project }}
+        run: npx eslint . --ext .ts,.tsx --max-warnings 50 || true
+
+      - name: npm audit (Security Scan)
+        working-directory: ${{ matrix.project }}
+        run: npm audit --audit-level=high || true
+
+      - name: Check for known vulnerabilities
+        working-directory: ${{ matrix.project }}
+        run: npx audit-ci --high || true
+
+  # =====================
+  # SAST with CodeQL
+  # =====================
+  codeql-analysis:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  # =====================
+  # Backend Tests
+  # =====================
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: Nivaas_Backend
+        run: npm ci
+
+      - name: Create .env file
+        working-directory: Nivaas_Backend
+        run: |
+          cat > .env << EOF
+          PORT=5000
+          MONGO_URI=mongodb://localhost:27017/homecomf_test
+          JWT_SECRET=test-jwt-secret-for-ci
+          ESEWA_SECRET_KEY=test-secret-key
+          ESEWA_PRODUCT_CODE=EPAYTEST
+          FRONTEND_BASE_URL=http://localhost:3000
+          BACKEND_BASE_URL=http://localhost:5000
+          ALLOW_ESEWA_INSECURE_CALLBACK=true
+          EOF
+
+      - name: Run tests
+        working-directory: Nivaas_Backend
+        run: npm test
+        env:
+          NODE_ENV: test
+
+  # =====================
+  # Frontend Build
+  # =====================
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: homecomf_Web
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: homecomf_Web
+        run: npm test || true
+
+      - name: Build Next.js
+        working-directory: homecomf_Web
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:5000
+
+  # =====================
+  # Docker Build Test
+  # =====================
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker images
+        run: docker compose -f docker-compose.yml build --no-cache
+
+  # =====================
+  # Dependency Scanning (SCA)
+  # =====================
+  dependency-scan:
+    name: Dependency Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Scan Backend Dependencies
+        working-directory: Nivaas_Backend
+        run: |
+          npm ci
+          npx snyk test --json || true
+
+      - name: Scan Frontend Dependencies
+        working-directory: homecomf_Web
+        run: |
+          npm ci
+          npx snyk test --json || true
