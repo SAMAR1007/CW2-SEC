@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+.next/
+out/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+*.stackdump
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Uploaded files (user-generated content)
+uploads/users/*
+uploads/hosts/*
+uploads/listings/*
+!uploads/**/.gitkeep
+
+# Test reports
+test-results/
+playwright-report/
+
+# Coverage
+coverage/
+
+# Docker
+.docker/
+
+# Misc
+*.tsbuildinfo
+next-env.d.ts
+
+# Keep gitkeep files
+!.gitkeep
