@@ -8,7 +8,6 @@ const createRateLimiter = (options: {
   windowMs: number;
   max: number;
   message: { message: string };
-  keyGenerator?: (req: Request) => string;
 }) => {
   if (isTestEnvironment) {
     // Return a no-op middleware in test environment
@@ -20,7 +19,6 @@ const createRateLimiter = (options: {
     standardHeaders: true,
     legacyHeaders: false,
     message: options.message,
-    ...(options.keyGenerator && { keyGenerator: options.keyGenerator }),
   });
 };
 
@@ -29,9 +27,6 @@ export const authLimiter = createRateLimiter({
   max: 5,
   message: {
     message: 'Too many authentication attempts. Please try again after 15 minutes.',
-  },
-  keyGenerator: (req: Request) => {
-    return req.ip || req.socket.remoteAddress || 'unknown';
   },
 });
 

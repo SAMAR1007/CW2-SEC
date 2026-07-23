@@ -233,14 +233,20 @@ export const getAuditLogs = async (req: AuthRequest, res: Response) => {
     const userRole = req.user?.role;
     if (userRole !== 'admin') throw new ApiError('Admin access required', 403);
     const { listAuditLogs } = await import('../services/auditLog.service');
-    const { limit, userId, category, action, skip } = req.query as Record<string, string>;
-    const result = await listAuditLogs({
-      limit: limit ? parseInt(limit) : undefined,
-      userId,
-      category,
-      action,
-      skip: skip ? parseInt(skip) : undefined,
-    });
+    const { limit: limitStr, userId, category, action, skip: skipStr } = req.query as Record<string, string>;
+    const auditParams: {
+      limit?: number;
+      userId?: string;
+      category?: string;
+      action?: string;
+      skip?: number;
+    } = {};
+    if (limitStr) auditParams.limit = parseInt(limitStr);
+    if (userId) auditParams.userId = userId;
+    if (category) auditParams.category = category;
+    if (action) auditParams.action = action;
+    if (skipStr) auditParams.skip = parseInt(skipStr);
+    const result = await listAuditLogs(auditParams);
     res.status(200).json(result);
   } catch (error) {
     if (error instanceof ApiError) {
