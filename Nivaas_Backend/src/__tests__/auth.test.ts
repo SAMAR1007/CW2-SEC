@@ -85,6 +85,7 @@ describe('Auth Integration Tests', () => {
       phoneNumber: '9000000006',
       password,
       role: 'user',
+      passwordChangedAt: new Date(),
     });
 
     const res = await request(app).post('/api/auth/login').send({
@@ -172,7 +173,9 @@ describe('Auth Integration Tests', () => {
     const res = await request(app).post('/api/auth/forgot-password').send({
       email: 'missing@example.com',
     });
-    expect(res.status).toBe(404);
+    // Returns 200 with generic message to prevent email enumeration
+    expect(res.status).toBe(200);
+    expect(res.body.message).toContain('If an account exists');
   });
 
   it('resets password with valid OTP', async () => {
